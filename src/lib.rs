@@ -1,10 +1,15 @@
 mod obfuscator;
 pub use obfuscator::Obfuscator;
+use serde::{Deserialize, Serialize};
+mod z;
+use z::O;
 
 mod armagen {
+    use std::fmt::Debug;
+
     use super::*;
 
-    pub trait Obfuscation {
+    pub trait Obfuscation: Default + Debug + Clone + Serialize + for<'de> Deserialize<'de> {
         fn new() -> Self;
         fn obfuscate(&mut self, sc: &[u8]);
         fn deobfuscate(&self) -> Vec<u8>;
@@ -14,7 +19,7 @@ mod armagen {
     macro_rules! generate_const_struct_code {
         ($struct_name:ident, $const_name:ident, $instance:expr) => {{
             let code = format!(
-                "use super::Obfuscator;\nuse once_cell::sync::Lazy;\npub static {}: Lazy<Obfuscator> = Lazy::new(|| \n{:?}\n);",
+                "use super::Obfuscator;\nuse once_cell::sync::Lazy;\npub static {}: Lazy<Obfuscator> = Lazy::new(|| {:?});",
                 stringify!($const_name),
                 $instance
             );
@@ -38,9 +43,34 @@ mod armagen {
         std::fs::write(out_path, code).unwrap();
     }
 
-    pub fn load(z_path: &str) -> Obfuscator {
-        // 从指定位置加载 待实现
-        todo!()
+    pub fn load() -> Obfuscator {
+        #[cfg(feature = "seperated")]
+        {
+            use regex::Regex;
+            let args = std::env::args().collect::<Vec<_>>();
+            if args.len() == 2 {
+                let code =
+                    std::fs::read_to_string(args.get(1).unwrap()).expect("No such z.rs file.");
+                let re = Regex::new(r"\|\|\s*Obfuscator\s*(.*?)\);").unwrap();
+                if let Some(captures) = re.captures(&code) {
+                    let obj_json = &captures[1]
+                        .replace("vec!", "")
+                        .replace("{ ", "{ \"")
+                        .replace(": ", "\": ")
+                        .replace("], ", "], \"");
+                    let obf: Obfuscator = serde_json::from_str(&obj_json).unwrap();
+                    obf
+                } else {
+                    panic!("No Obfuscator found in z.rs.")
+                }
+            } else {
+                panic!("Is it right path?")
+            }
+        }
+        #[cfg(not(feature = "seperated"))]
+        {
+            O.clone()
+        }
     }
 
     pub fn r2sc() -> Vec<u8> {
@@ -75,6 +105,3 @@ mod armagen {
 }
 
 pub use armagen::*;
-
-mod z;
-pub use z::O;

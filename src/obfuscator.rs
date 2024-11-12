@@ -1,6 +1,5 @@
 use super::*;
-
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Obfuscator {
     pub key: Vec<u8>,
     pub esc: Vec<u8>,
