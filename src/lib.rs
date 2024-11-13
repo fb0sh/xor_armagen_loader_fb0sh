@@ -1,4 +1,5 @@
 pub use ArmaGen::core::*;
+
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Obfuscator {
     pub key: Vec<u8>,
